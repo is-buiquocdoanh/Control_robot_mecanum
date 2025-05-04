@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Điều khiển Robot Mecanum</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial;
+      text-align: center;
+      margin: 20px;
+    }
+
+    .arrow-buttons button {
+      font-size: 20px;
+      padding: 10px 20px;
+      margin: 5px;
+    }
+
+    .velocity-inputs {
+      margin-top: 15px;
+    }
+
+    canvas {
+      margin-top: 30px;
+      max-width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <h2>🛸 Điều khiển Robot Mecanum</h2>
+
+  <!-- Nút mũi tên -->
+  <div class="arrow-buttons">
+    <div>
+      <button onclick="sendVelocity(0.2, 0, 0)">⬆️ Tiến</button>
+    </div>
+    <div>
+      <button onclick="sendVelocity(0, -0.2, 0)">⬅️ Trái</button>
+      <button onclick="sendVelocity(0, 0, 0.5)">⤴️ Quay trái</button>
+      <button onclick="sendVelocity(0, 0, -0.5)">⤵️ Quay phải</button>
+      <button onclick="sendVelocity(0, 0.2, 0)">➡️ Phải</button>
+    </div>
+    <div class="control-grid">
+      <button onclick="sendDirection(0.5, 0.5, 0)">↗</button>
+      <button onclick="sendDirection(0.5, -0.5, 0)">↖</button>
+      <button onclick="sendDirection(-0.5, 0.5, 0)">↘</button>
+      <button onclick="sendDirection(-0.5, -0.5, 0)">↙</button>
+    </div>
+    
+    <div>
+      <button onclick="sendVelocity(-0.2, 0, 0)">⬇️ Lùi</button>
+    </div>
+    <div>
+      <button onclick="sendVelocity(0, 0, 0)">⏹️ Dừng</button>
+    </div>
+  </div>
+
+  <!-- Nhập giá trị vx vy omega -->
+  <div class="velocity-inputs">
+    <label>vx (m/s): <input type="number" id="vx" step="0.01" value="0"></label>
+    <label>vy (m/s): <input type="number" id="vy" step="0.01" value="0"></label>
+    <label>omega (rad/s): <input type="number" id="omega" step="0.01" value="0"></label>
+    <button onclick="sendCustomVelocity()">📤 Gửi lệnh</button>
+  </div>
+
+  <!-- Biểu đồ tốc độ -->
+  <canvas id="speedChart" width="400" height="200"></canvas>
+
+  <script>
+    function sendVelocity(vx, vy, omega) {
+      fetch(`/cmd?vx=${vx}&vy=${vy}&omega=${omega}`)
+        .then(res => res.text())
+        .then(text => console.log(text));
+    }
+
+    function sendCustomVelocity() {
+      const vx = parseFloat(document.getElementById('vx').value);
+      const vy = parseFloat(document.getElementById('vy').value);
+      const omega = parseFloat(document.getElementById('omega').value);
+      sendVelocity(vx, vy, omega);
+    }
+
+    // Cập nhật biểu đồ mỗi 500ms
+    setInterval(() => {
+      fetch('/getSpeeds')
+        .then(res => res.json())
+        .then(data => {
+          updateChart(data.v1, data.v2, data.v3, data.v4);
+        });
+    }, 500);
+
+    // Tạo biểu đồ Chart.js
+    const ctx = document.getElementById('speedChart').getContext('2d');
+    const labels = Array.from({length: 20}, (_, i) => i.toString());
+    const data = {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Bánh 1',
+          data: Array(20).fill(0),
+          borderColor: 'red',
+          fill: false
+        },
+        {
+          label: 'Bánh 2',
+          data: Array(20).fill(0),
+          borderColor: 'green',
+          fill: false
+        },
+        {
+          label: 'Bánh 3',
+          data: Array(20).fill(0),
+          borderColor: 'blue',
+          fill: false
+        },
+        {
+          label: 'Bánh 4',
+          data: Array(20).fill(0),
+          borderColor: 'orange',
+          fill: false
+        }
+      ]
+    };
+
+    const config = {
+      type: 'line',
+      data: data,
+      options: {
+        animation: false,
+        responsive: true,
+        scales: {
+          y: {
+            title: {
+              display: true,
+              text: 'PWM'
+            }
+          },
+          x: {
+            title: {
+              display: true,
+              text: 'Lần cập nhật'
+            }
+          }
+        }
+      }
+    };
+
+    const speedChart = new Chart(ctx, config);
+
+    function updateChart(v1, v2, v3, v4) {
+      const maxPoints = 20;
+      const d = speedChart.data.datasets;
+      d[0].data.push(v1); d[0].data.shift();
+      d[1].data.push(v2); d[1].data.shift();
+      d[2].data.push(v3); d[2].data.shift();
+      d[3].data.push(v4); d[3].data.shift();
+      speedChart.update();
+    }
+  </script>
+</body>
+</html>
